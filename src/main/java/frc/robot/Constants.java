@@ -18,7 +18,6 @@ public final class Constants {
         public static final double fieldWidth;
         static {
             try {
-                // 載入預設場地 (例如 2025 Reefscape 或 2026)
                 layout = AprilTagFieldLayout.loadField(AprilTagFields.kDefaultField);
             } catch (Exception e) {
                 throw new RuntimeException("地圖載入失敗", e);
@@ -27,11 +26,8 @@ public final class Constants {
         static {
             AprilTagFieldLayout layout;
             try {
-                // 自動載入當年度的預設場地 (例如 2026 場地)
                 layout = AprilTagFieldLayout.loadField(AprilTagFields.kDefaultField);
             } catch (Exception e) {
-                // 萬一讀不到檔案 (極少發生)，給個預設值防止程式崩潰
-                // 這裡可以填入規則書上的大約數值
                 layout = null;
                 e.printStackTrace();
             }
@@ -61,17 +57,17 @@ public final class Constants {
             public static final double Swerve = Units.inchesToMeters(27/2 + 27);
 
             public static final Translation3d topCenterPoint = new Translation3d(
-                    layout.getTagPose(26).get().getX() + Units.inchesToMeters(60) / 2.0,
+                    layout.getTagPose(26).map(pose -> pose.getX()).orElse(0.0) + Units.inchesToMeters(60) / 2.0,
                     fieldWidth / 2.0, // Y 軸置中
                     height // 高度固定
             );
             public static final Translation3d topLeftCenterPoint = new Translation3d(
-                    layout.getTagPose(26).get().getX() + width / 2.0,
+                    layout.getTagPose(26).map(pose -> pose.getX()).orElse(0.0) + width / 2.0,
                     (fieldWidth / 2.0) + (bumpers / 2 + hub / 2), // Y 軸置中
                     height // 高度固定
             );
             public static final Translation3d topRightCenterPoint = new Translation3d(
-                    layout.getTagPose(26).get().getX() + width / 2.0,
+                    layout.getTagPose(26).map(pose -> pose.getX()).orElse(0.0) + width / 2.0,
                     (fieldWidth / 2.0) - (bumpers / 2 + hub / 2), // Y 軸置中
                     height // 高度固定
             );
@@ -141,30 +137,25 @@ public final class Constants {
         public static final class IDs {
 
         public static final class Shooter {
-            public static final int FLYWHEEL_MOTOR = 15;
+            public static final int FLYWHEEL_MOTOR = 36;
             public static final int HOOD_MOTOR = 25;
-            public static final int TURRET_MOTOR = 20;
+            public static final int TURRET_MOTOR = 31;
 
             public static final int HOOD_CANCODER = 55;
             public static final int TURRET_Cancoder = 21;
         }
 
         public static final class Intake {
-            public static final int ARM_MOTOR = 13;
-            public static final int Arm_follow = 14;
+            public static final int ARM_MOTOR = 34;
+            public static final int Arm_follow = 60;
             public static final int ROLLER_MOTOR = 23;
 
             public static final int ARM_CANCODER = 15;
         }
 
         public static final class Hopper {
-            public static final int TRIGGER_MOTOR = 30;
-            public static final int SPINDEXER_MOTOR = 31;
-        }
-
-        public static final class Climber {
-            public static final int CLIMBER_MOTOR = 40;
-            public static final int CLIMBER_SLAVE_MOTOR = 41;
+            public static final int TRIGGER_MOTOR = 15;
+            public static final int SPINDEXER_MOTOR = 30;
         }
 
         public static final class LED {

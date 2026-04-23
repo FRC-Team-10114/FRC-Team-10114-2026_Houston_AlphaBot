@@ -2,6 +2,7 @@ package frc.robot.subsystems.Intake;
 
 import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Radians;
+import static edu.wpi.first.units.Units.Volt;
 import static edu.wpi.first.units.Units.Volts;
 
 import org.littletonrobotics.junction.Logger;
@@ -40,11 +41,10 @@ public class IntakeSubsystem extends SubsystemBase {
     @Override
     public void periodic() {
         Logger.recordOutput("intakearmangle", this.arm.getPosition());
-
     }
 
     public void rollerStart() {
-        this.roller.setVoltage(Volts.of(5.0));
+        this.roller.setVoltage(Volts.of(4.0));
     }
 
     public void rollerEnd() {
@@ -92,5 +92,8 @@ public class IntakeSubsystem extends SubsystemBase {
     }
     public Command sysid(){
         return this.arm.sysid();
+    }
+    public void roll(){
+        this.roller.setVoltage(Volts.of(5));
     }
 }

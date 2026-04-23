@@ -165,7 +165,7 @@ public class ShooterSubsystem extends SubsystemBase {
 
         // this.setHoodAngle(HoodTarget);
 
-        this.setTurretAngle(drive.getRotation(), TurretTarget);
+        // this.setTurretAngle(drive.getRotation(), TurretTarget);
 
         Logger.recordOutput("HoodTarget", HoodtargetAngle);
 
@@ -183,10 +183,11 @@ public class ShooterSubsystem extends SubsystemBase {
     }
 
     public void shoot() {
-        this.setHoodAngle(HoodtargetAngle);
+        this.setHoodAngle(Degrees.of(50));
         this.flywheel.setRPS(flywheelgoal);
-        if (isAtSetPosition()) {
         this.trigger.run();
+        if (isAtSetPosition()) {
+        
         }
     }
 
