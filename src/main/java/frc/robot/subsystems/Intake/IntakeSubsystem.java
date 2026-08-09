@@ -2,6 +2,7 @@ package frc.robot.subsystems.Intake;
 
 import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Radians;
+import static edu.wpi.first.units.Units.RotationsPerSecond;
 import static edu.wpi.first.units.Units.Volt;
 import static edu.wpi.first.units.Units.Volts;
 
@@ -44,11 +45,15 @@ public class IntakeSubsystem extends SubsystemBase {
     }
 
     public void rollerStart() {
-        this.roller.setVoltage(Volts.of(4.0));
+        this.roller.setRPS(RotationsPerSecond.of(70));
+    }
+        public void rollerStartshoot() {
+        this.roller.setRPS(RotationsPerSecond.of(-20));
     }
 
     public void rollerEnd() {
-        this.roller.setVoltage(Volts.of(0));
+        state = intakestate.none;
+        this.roller.setRPS(RotationsPerSecond.of(0));
     }
 
     public void armup() {
@@ -58,16 +63,16 @@ public class IntakeSubsystem extends SubsystemBase {
 
     
     public void armdownforshoot() {
-        this.arm.setPosition(Degrees.of(82));
+        this.arm.setPosition(Degrees.of(0.0));
     }
 
     public void armupforshoot() {     
-        this.arm.setPosition(Degrees.of(72));
+        this.arm.setPosition(Degrees.of(90));
     }
 
     public void armdown() {
         state = intakestate.suck;
-        this.arm.setPosition(Degrees.of(-2.5));
+        this.arm.setPosition(Degrees.of(0.0));
     }
     public void armupforclimb(){
         this.arm.setPosition(Degrees.of(135));
@@ -80,20 +85,18 @@ public class IntakeSubsystem extends SubsystemBase {
     }
 
     public Command shootintake() {
-        return Commands.either(Commands.repeatingSequence(
-                Commands.runOnce(this::armdownforshoot, this),
-
-                Commands.waitSeconds(0.2),
-
-                Commands.runOnce(this::armupforshoot, this),
-
-                Commands.waitSeconds(0.2)), Commands.none(), () -> state == intakestate.none);
-
+        return Commands.either(
+                Commands.sequence(
+                        Commands.runOnce(this::armupforshoot, this),
+                        Commands.waitSeconds(0.7),
+                        Commands.runOnce(this::armdownforshoot, this),
+                        Commands.waitSeconds(0.7)
+                ), 
+                Commands.none(), 
+                () -> state == intakestate.none
+        );
     }
     public Command sysid(){
         return this.arm.sysid();
-    }
-    public void roll(){
-        this.roller.setVoltage(Volts.of(5));
     }
 }

@@ -17,11 +17,13 @@ import frc.robot.Constants.FieldConstants.siteConstants;
 
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 import edu.wpi.first.math.interpolation.InterpolatingTreeMap;
@@ -30,6 +32,7 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
 import frc.robot.subsystems.Drivetrain.CommandSwerveDrivetrain;
+import frc.robot.util.ShotSolver;
 import frc.robot.util.FIeldHelper.AllianceFlipUtil;
 import frc.robot.util.RobotStatus.RobotStatus;
 
@@ -126,6 +129,7 @@ public class ShooterCalculator {
         }
 
         public ShootingState calculateShootingToHub() {
+                // 1. 取得底盤目前的 Pose，並加上你的延遲補償 (Phase Delay) - 這是一個很棒的做法，必須保留！
                 Pose2d estimatedPose = drive.getPose2d();
                 ChassisSpeeds robotRelativeVelocity = drive.getChassisSpeeds();
 
@@ -134,156 +138,150 @@ public class ShooterCalculator {
                                 robotRelativeVelocity.vyMetersPerSecond * phaseDelay,
                                 robotRelativeVelocity.omegaRadiansPerSecond * phaseDelay));
 
-                Pose2d turretPosition = estimatedPose.transformBy(
-                                new Transform2d(
-                                                robotToTurret.getTranslation().toTranslation2d(),
-                                                robotToTurret.getRotation().toRotation2d()));
+                // 2. 取得場地速度 (Field-Relative Velocity)
+                ChassisSpeeds fieldVelocitySpeeds = drive.getFieldVelocity();
+                Translation2d fieldVelocity = new Translation2d(
+                                fieldVelocitySpeeds.vxMetersPerSecond,
+                                fieldVelocitySpeeds.vyMetersPerSecond);
 
-                Translation2d target = AllianceFlipUtil.apply(siteConstants.topCenterPoint.toTranslation2d());
-                double turretToTargetDistance = target.getDistance(turretPosition.getTranslation());
-
-                ChassisSpeeds robotVelocity = drive.getFieldVelocity();
-                double robotAngle = estimatedPose.getRotation().getRadians();
+                // 🚨 修正速度向量方向：確保速度向量與場地絕對座標系一致
                 if (AllianceFlipUtil.shouldFlip()) {
-                        robotVelocity = new ChassisSpeeds(
-                                        -robotVelocity.vxMetersPerSecond,
-                                        -robotVelocity.vyMetersPerSecond,
-                                        robotVelocity.omegaRadiansPerSecond);
+                        fieldVelocity = new Translation2d(-fieldVelocity.getX(), -fieldVelocity.getY());
                 }
 
-                // 2. 計算 Turret 的場地速度
-                Translation2d turretOffsetField = robotToTurret.getTranslation().toTranslation2d()
-                                .rotateBy(estimatedPose.getRotation());
+                // 3. 取得目標的 3D 座標
+                Translation2d target2d = AllianceFlipUtil.apply(siteConstants.topCenterPoint.toTranslation2d());
+                // 注意：這裡的 1.8288 公尺是根據 ShotSolver 內部的 TARGET_HEIGHT (約 6 呎)。
+                // 如果你的 siteConstants 有明確的 Z 軸高度，請替換掉 1.8288。
+                Translation3d hubCenter3d = new Translation3d(target2d.getX(), target2d.getY(), 1.8288);
 
-                double turretVelocityX = robotVelocity.vxMetersPerSecond
-                                + robotVelocity.omegaRadiansPerSecond
-                                                * (robotToTurret.getY() * Math.cos(robotAngle)
-                                                                - robotToTurret.getX() * Math.sin(robotAngle));
-                double turretVelocityY = robotVelocity.vyMetersPerSecond
-                                + robotVelocity.omegaRadiansPerSecond
-                                                * (robotToTurret.getX() * Math.cos(robotAngle)
-                                                                - robotToTurret.getY() * Math.sin(robotAngle));
+                // 4. 將 Pose2d 轉換為 ShotSolver 需要的 Pose3d
+                Pose3d robotPose3d = new Pose3d(estimatedPose);
 
+                // 5. ✨ 呼叫 ShotSolver 進行物理模擬解算 (完美取代原本的 5 次迴圈)
+                ShotSolver.Solution solution = ShotSolver.solve(
+                                robotPose3d,
+                                fieldVelocity,
+                                fieldVelocitySpeeds.omegaRadiansPerSecond,
+                                hubCenter3d,
+                                ShotSolver.Calibration.identity() // 使用預設微調 (無偏差)
+                );
 
-                double timeOfFlight = 0.0;
-                Pose2d lookaheadPose = turretPosition;
-                double lookaheadTurretToTargetDistance = turretToTargetDistance;
+                // 6. 處理結果並轉換回 ShootingState
+                if (solution.valid()) {
+                        // 💡 關鍵：ShotSolver 算出的 turretYawRad 是「相對於機器人車頭的角度 (Robot-Relative)」
+                        // 因為你是用底盤 (Swerve) 來瞄準，底盤的絕對目標角度 = 機器人現在角度 + 需要補償的偏移角
+                        Rotation2d targetFieldAngle = estimatedPose.getRotation()
+                                        .plus(Rotation2d.fromRadians(solution.turretYawRad()));
 
-                for (int i = 0; i < 5; i++) {
-                        timeOfFlight = timeOfFlightMap.get(lookaheadTurretToTargetDistance);
+                        // 保留你原本的鏡像翻轉邏輯 (視你的底盤角度定義而定)
+                        if (AllianceFlipUtil.shouldFlip()) {
+                                targetFieldAngle = Rotation2d.fromDegrees(targetFieldAngle.getDegrees() - 180.0);
+                        }
 
-                        double offsetX = turretVelocityX * timeOfFlight;
-                        double offsetY = turretVelocityY * timeOfFlight;
+                        // 記錄除錯數據
+                        Logger.recordOutput("ShotSolver/ToF", solution.tofSec());
+                        Logger.recordOutput("ShotSolver/ExitSpeedMps", solution.exitSpeedMps());
 
-                        lookaheadPose = new Pose2d(
-                                        turretPosition.getTranslation().plus(new Translation2d(offsetX, offsetY)),
-                                        turretPosition.getRotation());
+                        // 回傳最新的 ShootingState，使用 WPILib 2024+ 的單位類別
+                        return new ShootingState(
+                                        targetFieldAngle,
+                                        Degree.of(Math.toDegrees(solution.hoodRad())),
+                                        RotationsPerSecond.of(solution.flywheelRps()));
 
-                        lookaheadTurretToTargetDistance = target.getDistance(lookaheadPose.getTranslation());
+                } else {
+                        // 🚨 解算失敗防呆 (例如超出物理極限、目標太遠等)
+                        // 這裡可以選擇回傳「原本舊版靜態 Map 的運算結果」作為備案，或者回傳安全的待機狀態
+                        System.err.println("ShotSolver 判定無法命中 (超出射程或物理極限)!");
+
+                        // 這裡暫時示範回傳一個靜止狀態，你可以根據需求改回讀取靜態 Map 作為 Fallback
+                        return new ShootingState(
+                                        estimatedPose.getRotation(),
+                                        Degree.of(ShooterConstants.HARD_MIN_LIMIT),
+                                        RotationsPerSecond.of(0));
                 }
-
-                Translation2d vectorToTarget = target.minus(lookaheadPose.getTranslation());
-                Rotation2d targetFieldAngle = vectorToTarget.getAngle();
-
-                // 3. 最後的鏡像翻轉 (保持你原本的邏輯，用於修正靜態瞄準)
-                if (AllianceFlipUtil.shouldFlip()) {
-                        targetFieldAngle = Rotation2d.fromDegrees(targetFieldAngle.getDegrees() - 180.0);
-                }
-
-                // Logger.recordOutput("targetFieldAngle", targetFieldAngle);
-
-                Logger.recordOutput("lookaheadTurretToTargetDistance", lookaheadTurretToTargetDistance);
-
-                return new ShootingState(targetFieldAngle, hoodMap.get(lookaheadTurretToTargetDistance-0.19304),
-                                rollMap.get(lookaheadTurretToTargetDistance-0.19304));
         }
 
         // -------------------------------------------------------------------------------------------------------------------
         public ShootingState calculateShootingToAlliance() {
-                // 1. 取得基本狀態
+                // 1. 取得基本狀態與延遲補償 (Phase Delay Compensation)
                 Pose2d estimatedPose = drive.getPose2d();
                 ChassisSpeeds robotRelativeVelocity = drive.getChassisSpeeds();
 
-                // 2. 延遲補償 (Phase Delay Compensation)
-                // 預測 "現在命令發出後，實際執行時" 機器人會在哪
                 estimatedPose = estimatedPose.exp(new Twist2d(
                                 robotRelativeVelocity.vxMetersPerSecond * phaseDelay,
                                 robotRelativeVelocity.vyMetersPerSecond * phaseDelay,
                                 robotRelativeVelocity.omegaRadiansPerSecond * phaseDelay));
 
-                // 3. 計算砲塔位置
-                Pose2d turretPosition = estimatedPose.transformBy(
-                                new Transform2d(
-                                                robotToTurret.getTranslation().toTranslation2d(),
-                                                robotToTurret.getRotation().toRotation2d()));
+                // 2. 取得場地速度 (Field-Relative Velocity)
+                ChassisSpeeds fieldVelocitySpeeds = drive.getFieldVelocity();
+                Translation2d fieldVelocity = new Translation2d(
+                                fieldVelocitySpeeds.vxMetersPerSecond,
+                                fieldVelocitySpeeds.vyMetersPerSecond);
 
-                // 4. 計算目標位置 (處理紅藍翻轉)
-                Translation2d target;
+                // 🚨 速度向量紅藍方修正：確保速度向量與場地絕對座標系一致
+                if (AllianceFlipUtil.shouldFlip()) {
+                        fieldVelocity = new Translation2d(-fieldVelocity.getX(), -fieldVelocity.getY());
+                }
+
+                // 3. 計算目標位置 (處理紅藍翻轉與 3D 高度)
+                Translation2d target2d;
                 if (robotStatus.getVerticalSide() == RobotStatus.VerticalSide.TOP) {
-                        target = AllianceFlipUtil.apply(siteConstants.topLeftCenterPoint.toTranslation2d());
+                        target2d = AllianceFlipUtil.apply(siteConstants.topLeftCenterPoint.toTranslation2d());
                 } else {
-                        target = AllianceFlipUtil.apply(siteConstants.topRightCenterPoint.toTranslation2d());
-                }
-                double turretToTargetDistance = target.getDistance(turretPosition.getTranslation());
-
-                // 5. 計算砲塔的場地速度 (Turret Field Velocity)
-                ChassisSpeeds robotVelocity = drive.getFieldVelocity();
-                double robotAngle = estimatedPose.getRotation().getRadians();
-
-                if (AllianceFlipUtil.shouldFlip()) {
-                        robotVelocity = new ChassisSpeeds(
-                                        -robotVelocity.vxMetersPerSecond,
-                                        -robotVelocity.vyMetersPerSecond,
-                                        robotVelocity.omegaRadiansPerSecond);
+                        target2d = AllianceFlipUtil.apply(siteConstants.topRightCenterPoint.toTranslation2d());
                 }
 
-                // V_turret = V_robot + (Omega x Radius)
-                // 這是為了算出機器人旋轉時，砲塔本身被甩動的速度
-                double turretVelocityX = robotVelocity.vxMetersPerSecond
-                                + robotVelocity.omegaRadiansPerSecond
-                                                * (robotToTurret.getY() * Math.cos(robotAngle)
-                                                                - robotToTurret.getX() * Math.sin(robotAngle));
-                double turretVelocityY = robotVelocity.vyMetersPerSecond
-                                + robotVelocity.omegaRadiansPerSecond
-                                                * (robotToTurret.getX() * Math.cos(robotAngle)
-                                                                - robotToTurret.getY() * Math.sin(robotAngle));
+                // ✨ 設定傳球的目標高度 (Z軸)。
+                // 如果傳球不需要特定的高拋物線，或者只是想把球丟給隊友，你可以自定義這裡的高度
+                // 例如 0.5 公尺，或是維持預設的 1.83 (視同 Speaker 高度)
+                Translation3d target3d = new Translation3d(target2d.getX(), target2d.getY(), 1.83);
 
-                // 6. 核心迭代運算 (Iterative Solver)
-                // 找出 "Lookahead Pose" (虛擬發射點)
-                double timeOfFlight = 0.0;
-                Pose2d lookaheadPose = turretPosition;
-                double lookaheadTurretToTargetDistance = turretToTargetDistance;
+                // 4. 將 Pose2d 轉換為 ShotSolver 需要的 Pose3d
+                Pose3d robotPose3d = new Pose3d(estimatedPose);
 
-                // 跑 5 次迭代通常就足夠收斂了，不用跑到 20 次
-                for (int i = 0; i < 5; i++) {
-                        // 查表：根據目前的預測距離，查子彈飛多久
-                        timeOfFlight = ToAillancetimeOfFlightMap.get(lookaheadTurretToTargetDistance);
+                // 5. ✨ 呼叫 ShotSolver 進行物理模擬解算 (取代手動 5 次迭代)
+                ShotSolver.Solution solution = ShotSolver.solve(
+                                robotPose3d,
+                                fieldVelocity,
+                                fieldVelocitySpeeds.omegaRadiansPerSecond,
+                                target3d,
+                                ShotSolver.Calibration.identity());
 
-                        // 計算偏移量：在飛行時間內，機器人速度會把球帶偏多少
-                        double offsetX = turretVelocityX * timeOfFlight;
-                        double offsetY = turretVelocityY * timeOfFlight;
+                if (solution.valid()) {
+                        // 💡 將 Robot-Relative 角度轉換為絕對場地角度
+                        Rotation2d targetFieldAngle = estimatedPose.getRotation()
+                                        .plus(Rotation2d.fromRadians(solution.turretYawRad()));
 
-                        // 更新 Lookahead Pose
-                        lookaheadPose = new Pose2d(
-                                        turretPosition.getTranslation().plus(new Translation2d(offsetX, offsetY)),
-                                        turretPosition.getRotation());
+                        // 鏡像翻轉邏輯 (視你的底盤角度定義而定)
+                        if (AllianceFlipUtil.shouldFlip()) {
+                                targetFieldAngle = Rotation2d.fromDegrees(targetFieldAngle.getDegrees() - 180.0);
+                        }
 
-                        // 更新距離
-                        lookaheadTurretToTargetDistance = target.getDistance(lookaheadPose.getTranslation());
+                        // 記錄除錯數據
+                        Logger.recordOutput("ShotSolver_Alliance/ToF", solution.tofSec());
+                        Logger.recordOutput("ShotSolver_Alliance/ExitSpeedMps", solution.exitSpeedMps());
+
+                        // ✨ 注意這裡的 Hood 角度：
+                        // 你原本是寫死回傳 Hood_MAX_RADS。如果你想繼續鎖死最高仰角，可以維持原樣。
+                        // 但如果傳球的仰角也希望由 ShotSolver 控制，你可以改成 Math.toDegrees(solution.hoodRad())
+                        return new ShootingState(
+                                        targetFieldAngle,
+                                        Degree.of(Math.toDegrees(solution.hoodRad())), // 或者替換為:
+                                                                                       // Degree.of(Math.toDegrees(solution.hoodRad()))
+                                        RotationsPerSecond.of(solution.flywheelRps()));
+
+                } else {
+                        // 🚨 解算失敗防呆
+                        System.err.println("ShotSolver 判定傳球無法達成 (超出物理極限)!");
+
+                        // 這裡可以選擇回傳「靜態查表法」作為備案，或者回傳預設狀態
+                        return new ShootingState(
+                                        estimatedPose.getRotation(),
+                                        Hood_MAX_RADS,
+                                        RotationsPerSecond.of(0) // 不發射
+                        );
                 }
-
-                Translation2d vectorToTarget = target.minus(lookaheadPose.getTranslation());
-                Rotation2d targetFieldAngle = vectorToTarget.getAngle();
-
-                if (AllianceFlipUtil.shouldFlip()) {
-                        // 修正：先取出 double 做運算，再轉回 Rotation2d
-                        targetFieldAngle = Rotation2d.fromDegrees(targetFieldAngle.getDegrees() - 180.0);
-                }
-
-                // Logger.recordOutput("lookaheadTurretToTargetDistance",
-                // lookaheadTurretToTargetDistance);
-                return new ShootingState(targetFieldAngle, Hood_MAX_RADS,
-                                ToAillancerollMap.get(lookaheadTurretToTargetDistance));
         }
 
 }

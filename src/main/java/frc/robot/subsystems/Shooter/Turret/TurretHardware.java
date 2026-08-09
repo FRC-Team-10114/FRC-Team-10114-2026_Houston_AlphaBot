@@ -1,30 +1,21 @@
 package frc.robot.subsystems.Shooter.Turret;
 
-import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Radians;
-import static edu.wpi.first.units.Units.RadiansPerSecond;
-import static edu.wpi.first.units.Units.RadiansPerSecondPerSecond;
-import static edu.wpi.first.units.Units.RotationsPerSecond;
-import static edu.wpi.first.units.Units.RotationsPerSecondPerSecond;
+import static edu.wpi.first.units.Units.Rotations;
 import static edu.wpi.first.units.Units.Second;
 import static edu.wpi.first.units.Units.Volts;
 
-import java.util.logging.Logger;
-
-import org.opencv.core.Mat;
+import org.littletonrobotics.junction.Logger;
 
 import com.ctre.phoenix6.SignalLogger;
 import com.ctre.phoenix6.StatusSignal;
-import com.ctre.phoenix6.configs.CANcoderConfiguration;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
-import com.ctre.phoenix6.controls.DynamicMotionMagicVoltage;
+import com.ctre.phoenix6.controls.MotionMagicExpoVoltage;
 import com.ctre.phoenix6.controls.VoltageOut;
-import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
-import com.ctre.phoenix6.signals.SensorDirectionValue;
 
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.units.measure.Angle;
@@ -38,26 +29,19 @@ import frc.robot.subsystems.Shooter.ShooterConstants;
 
 public class TurretHardware extends TurretIO {
     private final TalonFX turretMotor;
-    private final CANcoder turretCaNcoder;
     private final StatusSignal<Angle> turretPosition;
 
     private final double gearRatio = (96.0 / 16.0) * 3.0;
 
-    private final DynamicMotionMagicVoltage m_request = new DynamicMotionMagicVoltage(0, 0, 0);
+    // 🟢 替換為 Expo 專屬的 Request (不再需要設定 V, A, J 極限)
+    private final MotionMagicExpoVoltage m_request = new MotionMagicExpoVoltage(0);
     private final VoltageOut voltagRequire = new VoltageOut(0.0);
     public Angle goal;
 
     private final SysIdRoutine sysIdRoutine;
 
-    private final double BASE_VELOCITY = 1.5;
-
-    private final double BASE_ACCELERATION = 6.0;
-
-    private final double BASE_JERK = 80.0 / (2.0 * Math.PI);
-
     public TurretHardware() {
         this.turretMotor = new TalonFX(IDs.Shooter.TURRET_MOTOR, "canivore");
-        this.turretCaNcoder = new CANcoder(IDs.Shooter.TURRET_Cancoder, "canivore");
         this.turretPosition = turretMotor.getPosition();
 
         SignalLogger.setPath("/U/");
@@ -75,17 +59,11 @@ public class TurretHardware extends TurretIO {
                             }
                         }));
 
-        this.CANcoderConfig();
         configureMotors();
-        seedPosition();
-    }
 
-    public void CANcoderConfig() {
-        var cfg = new CANcoderConfiguration();
-        cfg.MagnetSensor.MagnetOffset = -0.14697265625;
-        cfg.MagnetSensor.AbsoluteSensorDiscontinuityPoint = 0.5;
-        cfg.MagnetSensor.SensorDirection = SensorDirectionValue.CounterClockwise_Positive;
-        turretCaNcoder.getConfigurator().apply(cfg);
+        // 🟢 開局強制將馬達當前位置歸零 (因為沒有 CANcoder 了)
+        // ⚠️ 警告：機器人開機時，砲塔必須停在正中間 (0度) 的位置！
+        this.turretMotor.setPosition(0.0);
     }
 
     public void configureMotors() {
@@ -97,57 +75,48 @@ public class TurretHardware extends TurretIO {
                 .withSupplyCurrentLimitEnable(true)
                 .withSupplyCurrentLimit(40.0);
 
-        configs.SoftwareLimitSwitch
+configs.SoftwareLimitSwitch
                 .withReverseSoftLimitEnable(true)
-                .withReverseSoftLimitThreshold(ShooterConstants.HARD_MIN_LIMIT)
+                // 🟢 明確宣告這是弧度，並轉換成圈數 (Rotations) 給馬達
+                .withReverseSoftLimitThreshold(Radians.of(ShooterConstants.HARD_MIN_LIMIT).in(Rotations))
                 .withForwardSoftLimitEnable(true)
-                .withForwardSoftLimitThreshold(ShooterConstants.HARD_MAX_LIMIT);
-
+                .withForwardSoftLimitThreshold(Radians.of(ShooterConstants.HARD_MAX_LIMIT).in(Rotations));
+        // 🟢 恢復使用馬達內部感測器 (RotorSensor)
         configs.Feedback
                 .withFeedbackSensorSource(FeedbackSensorSourceValue.RotorSensor)
-                .withSensorToMechanismRatio(18.0);
+                .withSensorToMechanismRatio(18.0); // 傳動比
 
         configs.MotorOutput.NeutralMode = NeutralModeValue.Brake;
         configs.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
 
+        // ==========================================
+        // 🚀 Motion Magic Expo 設定核心
+        // ==========================================
+        // Expo 需要靠 kV 和 kA 來規劃完美曲線，所以要寫在 MotionMagic 區塊裡
+        configs.MotionMagic.MotionMagicExpo_kV = 1.5255 * 2 * Math.PI;
+        configs.MotionMagic.MotionMagicExpo_kA = 0.13204 * 2 * Math.PI;
+
+        // Slot0 只需要負責靜摩擦力 (kS) 與誤差修正 (kP, kD)
         configs.Slot0.kS = 0.63542;
-
-        configs.Slot0.kV = 1.5255 * 2 * Math.PI;
-        configs.Slot0.kA = 0.13204 * 2 * Math.PI;
-
-        configs.Slot0.kP = 42.0;
+        configs.Slot0.kP = 12.0;
         configs.Slot0.kD = 0.5;
+        // 注意：這裡不需要再設定 Slot0.kV 和 Slot0.kA，Expo 會自己處理！
 
         turretMotor.getConfigurator().apply(configs);
     }
 
-    public void seedPosition() {
-        turretCaNcoder.getAbsolutePosition().waitForUpdate(0.250);
-
-        double cancoderRotations = turretCaNcoder.getAbsolutePosition().getValueAsDouble();
-
-        double mechanismRotations = cancoderRotations * 2.0;
-
-        turretMotor.setPosition(mechanismRotations);
-    }
-
     @Override
     public void setAngle(Rotation2d robotHeading, Angle targetRad, ShootState state) {
-        double target = calculate(robotHeading, targetRad, state).in(Radians);
-        double current = getAngle().in(Radians);
-        double error = target - current;
+        // ✨ 修正 1：不要轉成 double，直接保留 Angle 物件
+        Angle bestAngle = calculate(robotHeading, targetRad, state);
 
-        double currentMaxVel = BASE_VELOCITY;
-        double currentMaxAccel = BASE_ACCELERATION;
         double extraFeedForwardVolts = 0.0;
 
-        org.littletonrobotics.junction.Logger.recordOutput("fix", calculate(robotHeading, targetRad, state));
+        Logger.recordOutput("fix", bestAngle.in(Radians)); // 僅 Log 使用弧度
 
+        // ✨ 修正 2：直接傳入 Angle，Phoenix 6 會自動轉換為 Rotations
         turretMotor.setControl(m_request
-                .withPosition(calculate(robotHeading, targetRad, state))
-                .withVelocity(currentMaxVel)
-                .withAcceleration(currentMaxAccel)
-                .withJerk(BASE_JERK)
+                .withPosition(bestAngle)
                 .withFeedForward(extraFeedForwardVolts));
     }
 

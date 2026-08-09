@@ -1,13 +1,12 @@
 package frc.robot.subsystems.Intake.Roller;
 
 import edu.wpi.first.units.measure.AngularVelocity;
-import edu.wpi.first.units.measure.Voltage;
 
 public interface RollerIO {
+    
+    public void setRPS(AngularVelocity rps);
 
-    public void setVoltage(Voltage volt);
+    public AngularVelocity getRPS();
 
-    public AngularVelocity getVelocity();
-
-    public void configure();
+    public void stop();
 }

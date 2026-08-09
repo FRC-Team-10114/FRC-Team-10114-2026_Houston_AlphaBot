@@ -22,6 +22,8 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.interpolation.TimeInterpolatableBuffer;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
+import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.math.util.Units;
@@ -34,8 +36,11 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.Subsystem;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
+import frc.robot.Constants.IDs.DriveConstants;
 import frc.robot.subsystems.Drivetrain.TunerConstants.TunerSwerveDrivetrain;
 import frc.robot.util.FIeldHelper.AllianceFlipUtil;
+import frc.robot.util.Swerve.SwerveSetpoint;
+import frc.robot.util.Swerve.SwerveSetpointGenerator;
 
 /**
  * Class that extends the Phoenix 6 SwerveDrivetrain class and implements
@@ -45,8 +50,9 @@ import frc.robot.util.FIeldHelper.AllianceFlipUtil;
  * https://v6.docs.ctr-electronics.com/en/stable/docs/tuner/tuner-swerve/index.html
  */
 public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Subsystem {
-    private final TimeInterpolatableBuffer<Pose2d> poseHistory = 
-        TimeInterpolatableBuffer.createBuffer(1.5);
+    private final SwerveSetpointGenerator swerveSetpointGenerator;
+        private final SwerveDriveKinematics kinematics = new SwerveDriveKinematics(DriveConstants.autoLocations);
+    private final TimeInterpolatableBuffer<Pose2d> poseHistory = TimeInterpolatableBuffer.createBuffer(1.5);
     private static final double kSimLoopPeriod = 0.004; // 4 ms
     private Notifier m_simNotifier = null;
     private double m_lastSimTime;
@@ -149,6 +155,9 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
             startSimThread();
         }
         configureAutoBuilder();
+                this.swerveSetpointGenerator = new SwerveSetpointGenerator(
+                this.kinematics,
+                DriveConstants.moduleLocations);
     }
 
     /**
@@ -175,6 +184,9 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
             startSimThread();
         }
         configureAutoBuilder();
+                this.swerveSetpointGenerator = new SwerveSetpointGenerator(
+                this.kinematics,
+                DriveConstants.moduleLocations);
     }
 
     /**
@@ -212,6 +224,9 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
             SwerveModuleConstants<?, ?, ?>... modules) {
         super(drivetrainConstants, odometryUpdateFrequency, odometryStandardDeviation, visionStandardDeviation,
                 modules);
+        this.swerveSetpointGenerator = new SwerveSetpointGenerator(
+                this.kinematics,
+                DriveConstants.moduleLocations);
         if (Utils.isSimulation()) {
             startSimThread();
         }
@@ -452,8 +467,38 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         return m_isClimbing;
     }
 
+    private SwerveSetpoint currentSetpoint = new SwerveSetpoint(
+            new ChassisSpeeds(),
+            new SwerveModuleState[] {
+                    new SwerveModuleState(),
+                    new SwerveModuleState(),
+                    new SwerveModuleState(),
+                    new SwerveModuleState()
+            });
+
     public Optional<Pose2d> getPoseAtTimestamp(double timestamp) {
         // 從我們自己建立的 Buffer 中調閱歷史數據
         return poseHistory.getSample(timestamp);
+    }
+
+    public void runVelocity(ChassisSpeeds speeds) {
+
+        ChassisSpeeds fieldSpeeds = ChassisSpeeds.fromFieldRelativeSpeeds(speeds, this.getPose2d().getRotation());
+
+        ChassisSpeeds discreteSpeeds = ChassisSpeeds.discretize(fieldSpeeds, 0.02);
+
+        currentSetpoint = swerveSetpointGenerator.generateSetpoint(
+                DriveConstants.moduleLimitsFree,
+                currentSetpoint,
+                discreteSpeeds,
+                0.02);
+
+        // 將四輪狀態反推回整車速度
+        ChassisSpeeds optimizedSpeeds = kinematics.toChassisSpeeds(currentSetpoint.moduleStates());
+
+        // 將速度傳給 CTRE
+        this.setControl(m_pathApplyRobotSpeeds.withSpeeds(optimizedSpeeds));
+
+        // Logger.recordOutput("Drive/SwerveStates/getPose", getPose2d());
     }
 }

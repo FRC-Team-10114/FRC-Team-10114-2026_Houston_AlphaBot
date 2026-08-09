@@ -79,7 +79,7 @@ public class ArmIOTalon implements ArmIO {
 
         @Override
         public void resetEncoder() {
-                this.armMotor.getConfigurator().setPosition(Degree.of(137.373046875));
+                this.armMotor.getConfigurator().setPosition(Degree.of(131.373046875));
         }
 
         @Override
@@ -93,13 +93,13 @@ public class ArmIOTalon implements ArmIO {
                                 .withSupplyCurrentLimit(20);
 
                 IntakeArmConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
-                IntakeArmConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
+                IntakeArmConfig.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
 
                 IntakeArmConfig.SoftwareLimitSwitch
                                 .withReverseSoftLimitEnable(true)
                                 .withReverseSoftLimitThreshold(Degree.of(-5))
                                 .withForwardSoftLimitEnable(true)
-                                .withForwardSoftLimitThreshold(Degree.of(135));
+                                .withForwardSoftLimitThreshold(Degree.of(131));
 
                 IntakeArmConfig.Feedback.SensorToMechanismRatio = 10.0;
 

@@ -17,7 +17,9 @@ import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import edu.wpi.first.wpilibj2.command.WaitUntilCommand;
 import frc.robot.subsystems.Shooter.ShooterCalculator.ShootingState;
 import frc.robot.subsystems.Shooter.Trigger.TriggerIO;
 import frc.robot.subsystems.Shooter.Trigger.TriggerIOTalon;
@@ -80,7 +82,7 @@ public class ShooterSubsystem extends SubsystemBase {
                 new TriggerIOTalon(),
                 new HoodIOTalon(),
                 new FlywheelHardware(),
-                new TurretIOTalon(),
+                new TurretHardware(),
                 new ShooterCalculator(drive, status),
                 drive,
                 status);
@@ -165,7 +167,7 @@ public class ShooterSubsystem extends SubsystemBase {
 
         // this.setHoodAngle(HoodTarget);
 
-        // this.setTurretAngle(drive.getRotation(), TurretTarget);
+        this.setTurretAngle(drive.getRotation(), TurretTarget);
 
         Logger.recordOutput("HoodTarget", HoodtargetAngle);
 
@@ -183,11 +185,10 @@ public class ShooterSubsystem extends SubsystemBase {
     }
 
     public void shoot() {
-        this.setHoodAngle(Degrees.of(50));
+        this.setHoodAngle(HoodtargetAngle);
         this.flywheel.setRPS(flywheelgoal);
-        this.trigger.run();
         if (isAtSetPosition()) {
-        
+            this.trigger.run();
         }
     }
 
@@ -198,42 +199,13 @@ public class ShooterSubsystem extends SubsystemBase {
     }
 
     public void setTurretAngle(Rotation2d robotAngle, Angle targetRad) {
-            this.turret.setAngle(robotAngle, targetRad, currentShootState);
-    }
-
-    public void cameralowset() {
-        cameralow = true;
-    }
-
-    public void camerabackset() {
-        cameralow = false;
+        this.turret.setAngle(robotAngle, targetRad, currentShootState);
     }
 
     public boolean isAtSetPosition() {
-        return flywheel.isAtSetPosition() && turret.isAtSetPosition();
-        // return true;
-    }
-
-    // TEST METHOD
-
-    // public void flywheelup() {
-    // this.flywheelRPS += 1;
-    // this.flywheel.setRPS(RotationsPerSecond.of(flywheelRPS));
-    // }
-
-    // public void flywheeldown() {
-    // this.flywheelRPS -= 1;
-    // this.flywheel.setRPS(RotationsPerSecond.of(flywheelRPS));
-    // }
-
-    public void turretup() {
-        this.turretAngle = turretAngle.plus(Radians.of(Units.degreesToRadians(5.0)));
-        this.turret.setAngle(new Rotation2d(0), turretAngle, currentShootState);
-    }
-
-    public void turretdown() {
-        this.turretAngle = turretAngle.minus(Radians.of(Units.degreesToRadians(5.0)));
-        this.turret.setAngle(new Rotation2d(0), turretAngle, currentShootState);
+        return flywheel.isAtSetPosition() &&
+        // turret.isAtSetPosition() &&
+                hood.isAtSetPosition();
     }
 
     public void setShootingState() {
@@ -242,19 +214,12 @@ public class ShooterSubsystem extends SubsystemBase {
         } else {
             this.currentShootState = ShootState.TRACKING;
         }
-
     }
 
-    // public Command sysid(){
-    // return this.turret.sysid();
-    // }
-    // public Command startCommand() {
-    // return this.hood.startCommand();
-    // }
-    // public Command stopCommand(){
-    // return this.hood.stopCommand();
-    // }
-    public Command sysIdTest() {
-        return this.hood.sysIdTest();
+    public Command waithoodsafe() {
+        return Commands.sequence(
+                Commands.runOnce(() -> this.hood.setAngle(ShooterConstants.Hood_MIN_LIMIT), this)
+                // ,Commands.waitUntil(() -> this.hood.isAtSetPosition())
+                );
     }
 }

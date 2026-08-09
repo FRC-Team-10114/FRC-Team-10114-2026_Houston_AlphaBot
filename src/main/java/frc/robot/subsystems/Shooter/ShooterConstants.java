@@ -16,8 +16,8 @@ public class ShooterConstants {
         public static final double HARD_MIN_LIMIT = Units.degreesToRadians(-250.0);
         public static final double HARD_MAX_LIMIT = Units.degreesToRadians(250.0);
 
-        public static final double SOFT_MIN_LIMIT = Units.degreesToRadians(-220.0);
-        public static final double SOFT_MAX_LIMIT = Units.degreesToRadians(220.0);
+        public static final double SOFT_MIN_LIMIT = Units.degreesToRadians(-210.0);
+        public static final double SOFT_MAX_LIMIT = Units.degreesToRadians(210.0);
 
         public static final Angle Hood_MAX_LIMIT = Degree.of(55); // 上限63
         public static final Angle Hood_MIN_LIMIT = Degree.of(27); // 下限25

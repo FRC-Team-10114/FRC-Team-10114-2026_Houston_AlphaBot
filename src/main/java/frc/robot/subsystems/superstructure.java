@@ -15,7 +15,7 @@ import frc.robot.subsystems.Shooter.ShooterSubsystem;
 import frc.robot.util.RobotEvent.Event.ShootingStateFalse;
 import frc.robot.util.RobotEvent.Event.ShootingStateTrue;
 
-public class superstructure extends SubsystemBase{
+public class superstructure extends SubsystemBase {
 
     private final IntakeSubsystem intake;
     private final ShooterSubsystem shooter;
@@ -32,20 +32,25 @@ public class superstructure extends SubsystemBase{
         this.hopper = hopper;
     }
 
-    public void intake() {
-        this.intake.rollerStart();
+    public Command intake() {
+        return this.intake.intake();
     }
-    public void intakestop(){
-        this.intake.rollerEnd();
+
+    public Command stopintake() {
+        return Commands.parallel(
+                Commands.runOnce(intake::rollerEnd));
+    }
+
+    public Command armforshoot() {
+        return this.intake.shootintake();
     }
 
     public void shoot() {
         this.intake.rollerStart();
     }
-        public Command shootCommand() {
-        return Commands.parallel(
 
-                // this.intake.shootintake(),
+    public Command shootCommand() {
+        return Commands.parallel(
 
                 // 2. 執行射擊與供彈判斷的 Command
                 Commands.run(() -> {
@@ -67,7 +72,8 @@ public class superstructure extends SubsystemBase{
                 Commands.runOnce(this.shooter::stopShoot),
                 Commands.runOnce(hopper::stop));
     }
-        public void setShootingStateTrue() {
+
+    public void setShootingStateTrue() {
         for (ShootingStateTrue listener : ShootingStateTrue) {
             listener.ShootingStateTrue();
         }
@@ -78,5 +84,18 @@ public class superstructure extends SubsystemBase{
             listener.ShootingStateFalse();
         }
     }
+    public Command autoshoot() {
+        return Commands.sequence(shootCommand().withTimeout(4.0));
+    }
+    
+    public Command autointake() {
+        return Commands.parallel(this.intake());
+    }
 
+    public Command intakestop() {
+        return Commands.parallel(this.stopintake());
+    }
+    public Command keepsafe(){
+        return this.shooter.waithoodsafe();
+    }
 }

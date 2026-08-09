@@ -8,8 +8,10 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
+import frc.robot.util.Swerve.ModuleLimits;
 
 public final class Constants {
     public static final class FieldConstants {
@@ -54,10 +56,10 @@ public final class Constants {
             public static final double TRENCHWide = Units.inchesToMeters(65.65);
             public static final double TRENCHdeep = Units.inchesToMeters(47.0);
             public static final double HUB_distance_to_the_ALLIANCE_WALL = Units.inchesToMeters(158.6);
-            public static final double Swerve = Units.inchesToMeters(27/2 + 27);
+            public static final double Swerve = Units.inchesToMeters(27 / 2 + 27);
 
             public static final Translation3d topCenterPoint = new Translation3d(
-                    layout.getTagPose(26).map(pose -> pose.getX()).orElse(0.0) + Units.inchesToMeters(60) / 2.0,
+                    layout.getTagPose(26).map(pose -> pose.getX()).orElse(0.0) + width / 2.0,
                     fieldWidth / 2.0, // Y 軸置中
                     height // 高度固定
             );
@@ -74,22 +76,27 @@ public final class Constants {
 
             public static final Pose2d Right_TRENCHE_Pose1 = new Pose2d(HUB_distance_to_the_ALLIANCE_WALL - Swerve, 0.0,
                     new Rotation2d(0.0));
-            public static final Pose2d Right_TRENCHE_Pose2 = new Pose2d(HUB_distance_to_the_ALLIANCE_WALL + TRENCHWide + Swerve,
+            public static final Pose2d Right_TRENCHE_Pose2 = new Pose2d(
+                    HUB_distance_to_the_ALLIANCE_WALL + TRENCHWide + Swerve,
                     0.0, new Rotation2d(0.0));
-            public static final Pose2d Right_TRENCHE_Pose3 = new Pose2d(HUB_distance_to_the_ALLIANCE_WALL - Swerve, TRENCHdeep,
+            public static final Pose2d Right_TRENCHE_Pose3 = new Pose2d(HUB_distance_to_the_ALLIANCE_WALL - Swerve,
+                    TRENCHdeep,
                     new Rotation2d(0.0));
-            public static final Pose2d Right_TRENCHE_Pose4 = new Pose2d(HUB_distance_to_the_ALLIANCE_WALL + TRENCHWide + Swerve,
+            public static final Pose2d Right_TRENCHE_Pose4 = new Pose2d(
+                    HUB_distance_to_the_ALLIANCE_WALL + TRENCHWide + Swerve,
                     TRENCHdeep,
                     new Rotation2d(0.0));
 
             public static final Pose2d Left_TRENCHE_Pose1 = new Pose2d(HUB_distance_to_the_ALLIANCE_WALL - Swerve,
                     FieldConstants.fieldWidth, new Rotation2d(0.0));
-            public static final Pose2d Left_TRENCHE_Pose2 = new Pose2d(HUB_distance_to_the_ALLIANCE_WALL + TRENCHWide + Swerve,
+            public static final Pose2d Left_TRENCHE_Pose2 = new Pose2d(
+                    HUB_distance_to_the_ALLIANCE_WALL + TRENCHWide + Swerve,
                     FieldConstants.fieldWidth, new Rotation2d(0.0));
             public static final Pose2d Left_TRENCHE_Pose3 = new Pose2d(HUB_distance_to_the_ALLIANCE_WALL - Swerve,
                     FieldConstants.fieldWidth - TRENCHdeep,
                     new Rotation2d(0.0));
-            public static final Pose2d Left_TRENCHE_Pose4 = new Pose2d(HUB_distance_to_the_ALLIANCE_WALL + TRENCHWide + Swerve,
+            public static final Pose2d Left_TRENCHE_Pose4 = new Pose2d(
+                    HUB_distance_to_the_ALLIANCE_WALL + TRENCHWide + Swerve,
                     FieldConstants.fieldWidth - TRENCHdeep,
                     new Rotation2d(0.0));
         }
@@ -112,29 +119,31 @@ public final class Constants {
 
         public static final Map<String, Transform3d> cameraTransforms = Map.of(
                 "FrontRight", new Transform3d(
-                        //右側
+                        // 右側
                         new Translation3d(0.3113271, -0.3113278, 0.1838034),
                         new Rotation3d(0.0, Units.degreesToRadians(-30.0), Units.degreesToRadians(-45.0))),
                 "FrontLeft", new Transform3d(
-                        //左側
+                        // 左側
                         new Translation3d(0.3113271, 0.3113278, 0.1838034),
                         new Rotation3d(0.0, Units.degreesToRadians(-30.0), Units.degreesToRadians(45.0))),
-                    "BackRight", new Transform3d(
-                        //左側
+                "BackRight", new Transform3d(
+                        // 左側
                         new Translation3d(0.1188632, -0.2648464, 0.3113339),
-                        new Rotation3d(Units.degreesToRadians(0.0), Units.degreesToRadians(-25.0), Units.degreesToRadians(-180.0))),
-                    "BackLeft", new Transform3d(
-                        //左側
+                        new Rotation3d(Units.degreesToRadians(0.0), Units.degreesToRadians(-25.0),
+                                Units.degreesToRadians(-180.0))),
+                "BackLeft", new Transform3d(
+                        // 左側
                         new Translation3d(0.1188632, 0.2648464, 0.3113339),
-                        new Rotation3d(Units.degreesToRadians(0.0), Units.degreesToRadians(-25.0), Units.degreesToRadians(-180.0))));
-                    
+                        new Rotation3d(Units.degreesToRadians(0.0), Units.degreesToRadians(-25.0),
+                                Units.degreesToRadians(-180.0))));
 
         public static final double borderPixels = 15.0; // 拒絕貼邊緣的角點（避免畸變/遮擋）
         public static final double maxSingleTagDistanceMeters = Units.feetToMeters(10); // 單tag最遠可接受距離
         public static final double maxYawRate = 720.0;// 最大可以接受的旋轉速度
-        public static final double maxZ = 0.5; //最大高度
+        public static final double maxZ = 0.5; // 最大高度
     }
-        public static final class IDs {
+
+    public static final class IDs {
 
         public static final class Shooter {
             public static final int FLYWHEEL_MOTOR = 36;
@@ -160,6 +169,32 @@ public final class Constants {
 
         public static final class LED {
             public static final int CANDLE = 45;
+        }
+
+        public static final class DriveConstants {
+
+            // ⚠️ 如果你的機器人是 27.5 吋長、27 吋寬，請把這兩個數字對調！
+            public static final double WHEEL_BASE_X = Units.inchesToMeters(27.5); // 前後輪中心距離
+            public static final double TRACK_WIDTH_Y = Units.inchesToMeters(27.0); // 左右輪中心距離
+
+            // 統一集中定義 Swerve 模組座標
+            public static final Translation2d[] moduleLocations = new Translation2d[] {
+                    new Translation2d(WHEEL_BASE_X / 2.0, TRACK_WIDTH_Y / 2.0), // 左前 (Front-Left) : +X, +Y
+                    new Translation2d(WHEEL_BASE_X / 2.0, -TRACK_WIDTH_Y / 2.0), // 右前 (Front-Right) : +X, -Y
+                    new Translation2d(-WHEEL_BASE_X / 2.0, TRACK_WIDTH_Y / 2.0), // 左後 (Back-Left) : -X, +Y
+                    new Translation2d(-WHEEL_BASE_X / 2.0, -TRACK_WIDTH_Y / 2.0) // 右後 (Back-Right) : -X, -Y
+            };
+
+            // 讓 autoLocations 直接指向 moduleLocations，避免重複定義導致的錯誤
+            public static final Translation2d[] autoLocations = moduleLocations;
+
+            public static final double kMaxSpeedMeterPerSecond = 6.0;
+            public static final double kMaxAngularSpeedRadiansPerSecond = 3 * 2 * Math.PI;
+
+            public static final double kMaxAccerationUnitsPerSecond = 22;
+
+            public static final ModuleLimits moduleLimitsFree = new ModuleLimits(kMaxSpeedMeterPerSecond,
+                    kMaxAccerationUnitsPerSecond, Units.degreesToRadians(1800));
         }
     }
 }

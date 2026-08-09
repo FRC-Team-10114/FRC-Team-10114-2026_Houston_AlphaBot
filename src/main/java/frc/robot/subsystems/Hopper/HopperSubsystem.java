@@ -25,8 +25,8 @@ public class HopperSubsystem extends SubsystemBase{
         return new HopperSubsystem(new ConveyorHareware(),new PeacemakerHardware());
     }
     public void warmUpforshoot(){
-        this.conveyorIO.setVoltage(Volts.of(9.5));
-        this.peacemakerIO.setVoltage(Volts.of(3));
+        this.conveyorIO.setVoltage(Volts.of(10.0));
+        this.peacemakerIO.setVoltage(Volts.of(8.0));
     }
 
     public void stop(){

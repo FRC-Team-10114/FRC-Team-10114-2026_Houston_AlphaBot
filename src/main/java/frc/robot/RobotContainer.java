@@ -11,7 +11,6 @@ import static edu.wpi.first.units.Units.RotationsPerSecond;
 import com.ctre.phoenix6.swerve.SwerveRequest;
 import com.pathplanner.lib.util.PathPlannerLogging;
 
-import choreo.auto.AutoChooser;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -20,6 +19,7 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.RobotModeTriggers;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.Constants.IDs.LED;
+import frc.robot.commands.DrivetrainCmd;
 import frc.robot.subsystems.superstructure;
 import frc.robot.subsystems.Dashboard.Dashboard;
 import frc.robot.subsystems.Drivetrain.CommandSwerveDrivetrain;
@@ -32,6 +32,8 @@ import frc.robot.subsystems.Vision.PhotonVision;
 import frc.robot.util.FMS.Signal;
 import frc.robot.util.RobotStatus.RobotStatus;
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
+import com.google.gson.JsonObject;
+import frc.robot.commands.AutoChooser;
 
 public class RobotContainer {
   // Constants for tuning
@@ -46,12 +48,12 @@ public class RobotContainer {
       .withDriveRequestType(DriveRequestType.OpenLoopVoltage);
 
   private final CommandXboxController joystick = new CommandXboxController(0);
-  private final CommandXboxController controller = new CommandXboxController(1);
 
   final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
   public final SwerveDrivetrainTest[] tests = new SwerveDrivetrainTest[4];
   private final Telemetry logger = new Telemetry(this.drivetrain.getState());
   private final RobotStatus robotStatus = new RobotStatus(drivetrain);
+  private final DrivetrainCmd drivetrainCmd = new DrivetrainCmd(drivetrain, joystick);
 
   // public final PhotonVision photonVision = new PhotonVision(drivetrain,
   // Constants.PhotonVisionConstants.cameraTransforms);
@@ -65,10 +67,12 @@ public class RobotContainer {
   private final LED led = new LED();
 
   private final superstructure superstructure = new superstructure(shooter, intake, hopper);
+  private final AutoChooser  autoChooser = new AutoChooser( drivetrain,superstructure);
 
   public final Signal signal = new Signal();
 
   private final Dashboard dashboard = new Dashboard(signal);
+
 
   public RobotContainer() {
     // Swerve Drivetrain Current Test
@@ -93,16 +97,8 @@ public class RobotContainer {
   }
 
   private void configureBindings() {
-    drivetrain.setDefaultCommand(
-        drivetrain.applyRequest(() -> {
-          return drive
-
-              .withVelocityX(-joystick.getLeftY() * MaxTeleOpSpeed)
-
-              .withVelocityY(-joystick.getLeftX() * MaxTeleOpSpeed)
-
-              .withRotationalRate(-joystick.getRightX() * MaxAngularRate);
-        }));
+    drivetrain.registerTelemetry(logger::telemeterize);
+    drivetrain.setDefaultCommand(drivetrainCmd);
     final var idle = new SwerveRequest.Idle();
     RobotModeTriggers.disabled().whileTrue(
         drivetrain.applyRequest(() -> idle).ignoringDisable(true));
@@ -111,9 +107,9 @@ public class RobotContainer {
     joystick.rightTrigger().whileTrue(this.superstructure.shootCommand())
         .onFalse(this.superstructure.stopShoot());
 
-    joystick.leftTrigger()
-        .whileTrue(Commands.run(superstructure::intake, superstructure))
-        .onFalse(Commands.runOnce(superstructure::intakestop, superstructure));
+    joystick.leftTrigger().whileTrue((superstructure.intake()))
+        .onFalse(superstructure.stopintake());
+    joystick.b().onTrue(superstructure.armforshoot());
   }
 
   public void log() {
@@ -139,6 +135,9 @@ public class RobotContainer {
   }
 
   public Command getAutonomousCommand() {
-    return null;
+    return autoChooser.auto();
+  }
+  public superstructure superstructure(){
+    return this.superstructure;
   }
 }
