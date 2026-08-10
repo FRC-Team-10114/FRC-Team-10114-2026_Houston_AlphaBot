@@ -208,7 +208,7 @@ public class ShooterSubsystem extends SubsystemBase {
 
     public boolean isAtSetPosition() {
         return flywheel.isAtSetPosition() &&
-        // turret.isAtSetPosition() &&
+        turret.isAtSetPosition() &&
                 hood.isAtSetPosition();
     }
 

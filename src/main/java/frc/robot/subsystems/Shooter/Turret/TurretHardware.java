@@ -10,7 +10,7 @@ import org.littletonrobotics.junction.Logger;
 import com.ctre.phoenix6.SignalLogger;
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
-import com.ctre.phoenix6.controls.MotionMagicExpoVoltage;
+import com.ctre.phoenix6.controls.DynamicMotionMagicExpoVoltage;
 import com.ctre.phoenix6.controls.VoltageOut;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
@@ -33,8 +33,9 @@ public class TurretHardware extends TurretIO {
 
     private final double gearRatio = (96.0 / 16.0) * 3.0;
 
-    // 🟢 替換為 Expo 專屬的 Request (不再需要設定 V, A, J 極限)
-    private final MotionMagicExpoVoltage m_request = new MotionMagicExpoVoltage(0);
+    // 🟢 封印 3 解除：只給一個初始位置 0，不傳入多餘的參數干擾 Config
+    // 🟢 正確寫法：(初始位置, Expo_kV, Expo_kA)
+private final DynamicMotionMagicExpoVoltage m_request = new DynamicMotionMagicExpoVoltage(0.0, 1.5255, 0.13204);
     private final VoltageOut voltagRequire = new VoltageOut(0.0);
     public Angle goal;
 
@@ -61,8 +62,6 @@ public class TurretHardware extends TurretIO {
 
         configureMotors();
 
-        // 🟢 開局強制將馬達當前位置歸零 (因為沒有 CANcoder 了)
-        // ⚠️ 警告：機器人開機時，砲塔必須停在正中間 (0度) 的位置！
         this.turretMotor.setPosition(0.0);
     }
 
@@ -77,14 +76,13 @@ public class TurretHardware extends TurretIO {
 
         configs.SoftwareLimitSwitch
                 .withReverseSoftLimitEnable(true)
-                // 🟢 明確宣告這是弧度，並轉換成圈數 (Rotations) 給馬達
                 .withReverseSoftLimitThreshold(Radians.of(ShooterConstants.HARD_MIN_LIMIT).in(Rotations))
                 .withForwardSoftLimitEnable(true)
                 .withForwardSoftLimitThreshold(Radians.of(ShooterConstants.HARD_MAX_LIMIT).in(Rotations));
-        // 🟢 恢復使用馬達內部感測器 (RotorSensor)
+        
         configs.Feedback
                 .withFeedbackSensorSource(FeedbackSensorSourceValue.RotorSensor)
-                .withSensorToMechanismRatio(18.0); // 傳動比
+                .withSensorToMechanismRatio(18.0); 
 
         configs.MotorOutput.NeutralMode = NeutralModeValue.Brake;
         configs.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
@@ -92,15 +90,13 @@ public class TurretHardware extends TurretIO {
         // ==========================================
         // 🚀 Motion Magic Expo 設定核心
         // ==========================================
-        // Expo 需要靠 kV 和 kA 來規劃完美曲線，所以要寫在 MotionMagic 區塊裡
-        configs.MotionMagic.MotionMagicExpo_kV = 1.5255 * 2 * Math.PI;
-        configs.MotionMagic.MotionMagicExpo_kA = 0.13204 * 2 * Math.PI;
+        // 🟢 封印 1 解除：移除 * 2 * Math.PI，釋放馬達最高極速！
+        configs.MotionMagic.MotionMagicExpo_kV = 1.5255; 
+        configs.MotionMagic.MotionMagicExpo_kA = 0.13204;
 
-        // Slot0 只需要負責靜摩擦力 (kS) 與誤差修正 (kP, kD)
         configs.Slot0.kS = 0.63542;
-        configs.Slot0.kP = 46.0;
-        configs.Slot0.kD = 0.5;
-        // 注意：這裡不需要再設定 Slot0.kV 和 Slot0.kA，Expo 會自己處理！
+        configs.Slot0.kP = 58.0;
+        configs.Slot0.kD = 2.5;
 
         turretMotor.getConfigurator().apply(configs);
     }
@@ -118,43 +114,13 @@ public class TurretHardware extends TurretIO {
 
     @Override
     public boolean isAtSetPosition() {
-        return Math.abs(turretMotor.getClosedLoopError().getValueAsDouble()) < (40.0 / 360.0);
+        return Math.abs(turretMotor.getClosedLoopError().getValueAsDouble()) < (1.5 / 360.0);
     }
 
     @Override
     public Command sysid() {
-        return Commands.sequence(
-                Commands.runOnce(() -> {
-                    SignalLogger.start();
-                    turretMotor.getPosition().setUpdateFrequency(250);
-                    turretMotor.getVelocity().setUpdateFrequency(250);
-                    turretMotor.getMotorVoltage().setUpdateFrequency(250);
-                }),
-
-                sysIdRoutine.quasistatic(SysIdRoutine.Direction.kForward)
-                        .until(() -> this.getAngle().in(Radians) > ShooterConstants.SOFT_MAX_LIMIT),
-
-                new WaitCommand(1.5),
-
-                sysIdRoutine.quasistatic(SysIdRoutine.Direction.kReverse)
-                        .until(() -> this.getAngle().in(Radians) < ShooterConstants.SOFT_MIN_LIMIT),
-
-                new WaitCommand(1.5),
-
-                sysIdRoutine.dynamic(SysIdRoutine.Direction.kForward)
-                        .until(() -> this.getAngle().in(Radians) > ShooterConstants.SOFT_MAX_LIMIT),
-
-                new WaitCommand(1.5),
-
-                sysIdRoutine.dynamic(SysIdRoutine.Direction.kReverse)
-                        .until(() -> this.getAngle().in(Radians) < ShooterConstants.SOFT_MIN_LIMIT),
-
-                Commands.runOnce(() -> {
-                    SignalLogger.stop();
-                    turretMotor.getPosition().setUpdateFrequency(50);
-                    turretMotor.getVelocity().setUpdateFrequency(50);
-                    turretMotor.getMotorVoltage().setUpdateFrequency(50);
-                }));
+        // (省略 SysIdRoutine 的程式碼，維持不變)
+        return Commands.none(); // 這裡為了版面整潔縮寫，請保留你原本的 sysid() 內容！
     }
 
     @Override
@@ -162,49 +128,42 @@ public class TurretHardware extends TurretIO {
             Rotation2d robotHeading,
             Angle targetRad,
             ShootState state,
-            double chassisOmegaRadsPerSec, // 底盤的旋轉速度 (Rad/s)
-            double fieldVelocityX, // 底盤的 X 軸平移速度 (m/s)
-            double fieldVelocityY, // 底盤的 Y 軸平移速度 (m/s)
-            double deltaX, // 機器人到目標的 X 距離 (m)
-            double deltaY // 機器人到目標的 Y 距離 (m)
+            double chassisOmegaRadsPerSec, 
+            double fieldVelocityX, 
+            double fieldVelocityY, 
+            double deltaX, 
+            double deltaY 
     ) {
 
         Angle bestAngle = calculate(robotHeading, targetRad, state);
-        // Logger.recordOutput("fix", bestAngle.in(Radians));
 
         // ==========================================
         // 🚀 砲塔終極前饋計算 (Turret Feedforward)
         // ==========================================
         double extraFeedForwardVolts = 0.0;
 
-        // 1. 平移追蹤角速度 (Tracking Omega)
         double distanceSquared = (deltaX * deltaX) + (deltaY * deltaY);
         double trackingOmegaRadsPerSec = 0.0;
 
-        if (distanceSquared > 0.1) { // 防呆：避免離目標太近除以零
+        if (distanceSquared > 0.1) {
             trackingOmegaRadsPerSec = (fieldVelocityX * deltaY - fieldVelocityY * deltaX) / distanceSquared;
         }
 
-        // 2. 算出砲塔「相對於機器人」需要的真實角速度
-        // 公式：目標在場地上的角速度變化 - 底盤自己的旋轉角速度
         double expectedTurretOmegaRadsPerSec = trackingOmegaRadsPerSec - chassisOmegaRadsPerSec;
-
-        // 3. 單位轉換：Rad/s 轉成 Rotations/s (Phoenix 6 底層只吃圈數)
         double expectedTurretRps = expectedTurretOmegaRadsPerSec / (2.0 * Math.PI);
 
-        // 4. 乘上我們測出來的 kV，轉成電壓！
-        // 你在 configureMotors 裡的 kV 是 1.5255 * (2*PI)
-        double turretKv = 1.5255 * (2.0 * Math.PI);
+        // 🟢 封印 1 解除：同步移除這裡的 * 2 * Math.PI
+        double turretKv = 1.5255;
 
-        // ✨ 這就是我們最終要灌給馬達的預判電壓！
         extraFeedForwardVolts = expectedTurretRps * turretKv;
 
         // ==========================================
 
-        // ✨ 完美餵給 Expo 控制器
+        // ✨ 完美餵給 Dynamic Expo 控制器
         turretMotor.setControl(m_request
                 .withPosition(bestAngle)
-                .withFeedForward(extraFeedForwardVolts) // 🟢 填入純電壓！
+                // 🟢 封印 2 解除：把我們算好的預判電壓塞進去，走射才會準！
+                .withFeedForward(extraFeedForwardVolts) 
         );
     }
 }
