@@ -75,7 +75,7 @@ public class TurretHardware extends TurretIO {
                 .withSupplyCurrentLimitEnable(true)
                 .withSupplyCurrentLimit(40.0);
 
-configs.SoftwareLimitSwitch
+        configs.SoftwareLimitSwitch
                 .withReverseSoftLimitEnable(true)
                 // 🟢 明確宣告這是弧度，並轉換成圈數 (Rotations) 給馬達
                 .withReverseSoftLimitThreshold(Radians.of(ShooterConstants.HARD_MIN_LIMIT).in(Rotations))
@@ -98,26 +98,11 @@ configs.SoftwareLimitSwitch
 
         // Slot0 只需要負責靜摩擦力 (kS) 與誤差修正 (kP, kD)
         configs.Slot0.kS = 0.63542;
-        configs.Slot0.kP = 12.0;
+        configs.Slot0.kP = 46.0;
         configs.Slot0.kD = 0.5;
         // 注意：這裡不需要再設定 Slot0.kV 和 Slot0.kA，Expo 會自己處理！
 
         turretMotor.getConfigurator().apply(configs);
-    }
-
-    @Override
-    public void setAngle(Rotation2d robotHeading, Angle targetRad, ShootState state) {
-        // ✨ 修正 1：不要轉成 double，直接保留 Angle 物件
-        Angle bestAngle = calculate(robotHeading, targetRad, state);
-
-        double extraFeedForwardVolts = 0.0;
-
-        Logger.recordOutput("fix", bestAngle.in(Radians)); // 僅 Log 使用弧度
-
-        // ✨ 修正 2：直接傳入 Angle，Phoenix 6 會自動轉換為 Rotations
-        turretMotor.setControl(m_request
-                .withPosition(bestAngle)
-                .withFeedForward(extraFeedForwardVolts));
     }
 
     @Override
@@ -170,5 +155,56 @@ configs.SoftwareLimitSwitch
                     turretMotor.getVelocity().setUpdateFrequency(50);
                     turretMotor.getMotorVoltage().setUpdateFrequency(50);
                 }));
+    }
+
+    @Override
+    public void setAngle(
+            Rotation2d robotHeading,
+            Angle targetRad,
+            ShootState state,
+            double chassisOmegaRadsPerSec, // 底盤的旋轉速度 (Rad/s)
+            double fieldVelocityX, // 底盤的 X 軸平移速度 (m/s)
+            double fieldVelocityY, // 底盤的 Y 軸平移速度 (m/s)
+            double deltaX, // 機器人到目標的 X 距離 (m)
+            double deltaY // 機器人到目標的 Y 距離 (m)
+    ) {
+
+        Angle bestAngle = calculate(robotHeading, targetRad, state);
+        // Logger.recordOutput("fix", bestAngle.in(Radians));
+
+        // ==========================================
+        // 🚀 砲塔終極前饋計算 (Turret Feedforward)
+        // ==========================================
+        double extraFeedForwardVolts = 0.0;
+
+        // 1. 平移追蹤角速度 (Tracking Omega)
+        double distanceSquared = (deltaX * deltaX) + (deltaY * deltaY);
+        double trackingOmegaRadsPerSec = 0.0;
+
+        if (distanceSquared > 0.1) { // 防呆：避免離目標太近除以零
+            trackingOmegaRadsPerSec = (fieldVelocityX * deltaY - fieldVelocityY * deltaX) / distanceSquared;
+        }
+
+        // 2. 算出砲塔「相對於機器人」需要的真實角速度
+        // 公式：目標在場地上的角速度變化 - 底盤自己的旋轉角速度
+        double expectedTurretOmegaRadsPerSec = trackingOmegaRadsPerSec - chassisOmegaRadsPerSec;
+
+        // 3. 單位轉換：Rad/s 轉成 Rotations/s (Phoenix 6 底層只吃圈數)
+        double expectedTurretRps = expectedTurretOmegaRadsPerSec / (2.0 * Math.PI);
+
+        // 4. 乘上我們測出來的 kV，轉成電壓！
+        // 你在 configureMotors 裡的 kV 是 1.5255 * (2*PI)
+        double turretKv = 1.5255 * (2.0 * Math.PI);
+
+        // ✨ 這就是我們最終要灌給馬達的預判電壓！
+        extraFeedForwardVolts = expectedTurretRps * turretKv;
+
+        // ==========================================
+
+        // ✨ 完美餵給 Expo 控制器
+        turretMotor.setControl(m_request
+                .withPosition(bestAngle)
+                .withFeedForward(extraFeedForwardVolts) // 🟢 填入純電壓！
+        );
     }
 }

@@ -24,16 +24,24 @@ public abstract class TurretIO {
 
     public abstract Angle getAnglegoal();
 
-    public abstract void setAngle(Rotation2d robotHeading, Angle targetRad, ShootState state);
+    public abstract void setAngle(
+            Rotation2d robotHeading,
+            Angle targetRad,
+            ShootState state,
+            double chassisOmegaRadsPerSec, // 底盤的旋轉速度 (Rad/s)
+            double fieldVelocityX, // 底盤的 X 軸平移速度 (m/s)
+            double fieldVelocityY, // 底盤的 Y 軸平移速度 (m/s)
+            double deltaX, // 機器人到目標的 X 距離 (m)
+            double deltaY // 機器人到目標的 Y 距離 (m)
+    );
 
     // public abstract void resetAngle();
 
     public abstract Angle getAngle();
 
     public abstract boolean isAtSetPosition();
-    
-    public abstract Command sysid();
 
+    public abstract Command sysid();
 
     public Angle calculate(Rotation2d robotHeading, Angle targetRad, ShootState state) {
 
@@ -49,15 +57,15 @@ public abstract class TurretIO {
             currentMax = ShooterConstants.SOFT_MAX_LIMIT;
         }
 
-        Rotation2d targetRotation = Rotation2d.fromRadians(targetRad.in(Radians));
-
-        Rotation2d relativeGoal = targetRotation.minus(robotHeading);
-
+        // 🟢 既然傳進來的 targetRad 已經是「相對車頭角度」，我們直接標準化它即可
+        // 使用 Rotation2d 是為了把角度漂亮地收斂到 [-PI, PI] 之間，方便後續找最佳圈數
+        Rotation2d relativeGoal = Rotation2d.fromRadians(targetRad.in(Radians));
         double baseAngleRads = relativeGoal.getRadians();
 
         double bestAngle = 0.0;
         boolean foundValidAngle = false;
 
+        // 尋找在硬體/軟體極限內，距離當前砲塔位置最近的合法「圈數」 (-2圈 到 +2圈)
         for (int i = -2; i <= 2; i++) {
             double candidate = baseAngleRads + (Math.PI * 2.0 * i);
 

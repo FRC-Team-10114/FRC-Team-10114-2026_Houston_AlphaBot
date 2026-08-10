@@ -8,6 +8,8 @@ import static edu.wpi.first.units.Units.MetersPerSecond;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
+import org.opencv.photo.Photo;
+
 import com.ctre.phoenix6.swerve.SwerveRequest;
 import com.pathplanner.lib.util.PathPlannerLogging;
 
@@ -68,6 +70,8 @@ public class RobotContainer {
 
   private final superstructure superstructure = new superstructure(shooter, intake, hopper);
   private final AutoChooser  autoChooser = new AutoChooser( drivetrain,superstructure);
+
+  private final PhotonVision photonVision = new PhotonVision(drivetrain, Constants.PhotonVisionConstants.cameraTransforms);
 
   public final Signal signal = new Signal();
 

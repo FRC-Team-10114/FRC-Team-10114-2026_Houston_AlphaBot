@@ -85,9 +85,9 @@ public class HoodIOTalon implements HoodIO {
     public void CANcoderConfig() {
         var cfg = new CANcoderConfiguration();
 
-        double targetSensorRotations = Units.degreesToRotations(25.0) * sensorToMechRatio;
+        double targetSensorRotations = Units.degreesToRotations(20.277) * sensorToMechRatio;
 
-        cfg.MagnetSensor.MagnetOffset = 0.33203125 + targetSensorRotations;
+        cfg.MagnetSensor.MagnetOffset = 0.3115234375 + targetSensorRotations;
 
         cfg.MagnetSensor.AbsoluteSensorDiscontinuityPoint = 0.5;
         cfg.MagnetSensor.SensorDirection = SensorDirectionValue.CounterClockwise_Positive;

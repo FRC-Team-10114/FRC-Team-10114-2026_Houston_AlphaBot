@@ -125,17 +125,7 @@ public final class Constants {
                 "FrontLeft", new Transform3d(
                         // 左側
                         new Translation3d(0.3113271, 0.3113278, 0.1838034),
-                        new Rotation3d(0.0, Units.degreesToRadians(-30.0), Units.degreesToRadians(45.0))),
-                "BackRight", new Transform3d(
-                        // 左側
-                        new Translation3d(0.1188632, -0.2648464, 0.3113339),
-                        new Rotation3d(Units.degreesToRadians(0.0), Units.degreesToRadians(-25.0),
-                                Units.degreesToRadians(-180.0))),
-                "BackLeft", new Transform3d(
-                        // 左側
-                        new Translation3d(0.1188632, 0.2648464, 0.3113339),
-                        new Rotation3d(Units.degreesToRadians(0.0), Units.degreesToRadians(-25.0),
-                                Units.degreesToRadians(-180.0))));
+                        new Rotation3d(0.0, Units.degreesToRadians(-30.0), Units.degreesToRadians(45.0))));
 
         public static final double borderPixels = 15.0; // 拒絕貼邊緣的角點（避免畸變/遮擋）
         public static final double maxSingleTagDistanceMeters = Units.feetToMeters(10); // 單tag最遠可接受距離

@@ -32,7 +32,6 @@ import frc.robot.subsystems.Shooter.Hood.HoodIOTalon;
 import frc.robot.subsystems.Shooter.Turret.TurretHardware;
 import frc.robot.subsystems.Shooter.Turret.TurretIO;
 // import frc.robot.subsystems.Shooter.Turret.TurretIOSpark;
-import frc.robot.subsystems.Shooter.Turret.TurretIOTalon;
 import frc.robot.subsystems.Shooter.Turret.TurretIO.ShootState;
 import frc.robot.util.RobotStatus.RobotStatus;
 
@@ -153,9 +152,10 @@ public class ShooterSubsystem extends SubsystemBase {
     }
 
     public void SetShooterGoal() {
+
         ShootingState state = this.shooterTargetChoose();
 
-        Rotation2d targetFieldAngle = state.turretFieldAngle();
+        Rotation2d targetFieldAngle = state.turretRelativeAngle();
 
         Angle TurretTarget = Radians.of(targetFieldAngle.getRadians());
 
@@ -167,7 +167,7 @@ public class ShooterSubsystem extends SubsystemBase {
 
         // this.setHoodAngle(HoodTarget);
 
-        this.setTurretAngle(drive.getRotation(), TurretTarget);
+        this.setTurretAngle(drive.getRotation(), TurretTarget,state.chassisOmegaRadsPerSec(),state.fieldVelocityX(),state.fieldVelocityY(),state.deltaX(),state.deltaY());
 
         Logger.recordOutput("HoodTarget", HoodtargetAngle);
 
@@ -198,8 +198,12 @@ public class ShooterSubsystem extends SubsystemBase {
         this.hood.setAngle(ShooterConstants.Hood_MIN_LIMIT);
     }
 
-    public void setTurretAngle(Rotation2d robotAngle, Angle targetRad) {
-        this.turret.setAngle(robotAngle, targetRad, currentShootState);
+    public void setTurretAngle(Rotation2d robotAngle, Angle targetRad, double chassisOmegaRadsPerSec,
+            double fieldVelocityX,
+            double fieldVelocityY,
+            double deltaX,
+            double deltaY) {
+        this.turret.setAngle(robotAngle, targetRad, currentShootState, chassisOmegaRadsPerSec, fieldVelocityX, fieldVelocityY, deltaX, deltaY);
     }
 
     public boolean isAtSetPosition() {
@@ -218,8 +222,7 @@ public class ShooterSubsystem extends SubsystemBase {
 
     public Command waithoodsafe() {
         return Commands.sequence(
-                Commands.runOnce(() -> this.hood.setAngle(ShooterConstants.Hood_MIN_LIMIT), this)
-                // ,Commands.waitUntil(() -> this.hood.isAtSetPosition())
-                );
+                Commands.runOnce(() -> this.hood.setAngle(ShooterConstants.Hood_MIN_LIMIT), this),
+                Commands.waitUntil(() -> this.hood.isAtSetPosition()));
     }
 }

@@ -13,14 +13,14 @@ public class ShooterConstants {
         public static Transform3d robotToTurret = new Transform3d(0.10167023632566, -0.00000037052800, 0.26373899694824,
                         Rotation3d.kZero);//-0.00000037052800
 
-        public static final double HARD_MIN_LIMIT = Units.degreesToRadians(-250.0);
-        public static final double HARD_MAX_LIMIT = Units.degreesToRadians(250.0);
+        public static final double HARD_MIN_LIMIT = Units.degreesToRadians(-190.0);
+        public static final double HARD_MAX_LIMIT = Units.degreesToRadians(190.0);
 
-        public static final double SOFT_MIN_LIMIT = Units.degreesToRadians(-210.0);
-        public static final double SOFT_MAX_LIMIT = Units.degreesToRadians(210.0);
+        public static final double SOFT_MIN_LIMIT = Units.degreesToRadians(-190.0);
+        public static final double SOFT_MAX_LIMIT = Units.degreesToRadians(190.0);
 
-        public static final Angle Hood_MAX_LIMIT = Degree.of(55); // 上限63
-        public static final Angle Hood_MIN_LIMIT = Degree.of(27); // 下限25
+        public static final Angle Hood_MAX_LIMIT = Degree.of(52.983); // 上限63
+        public static final Angle Hood_MIN_LIMIT = Degree.of(20.277); // 下限25
 
         public static final double Hood_GEAR_RATIO = (1.0 / 0.0181);
         public static final double HoodCancoder_GEAR_RATIO_TOMotor = (1.0 / 0.0956);
