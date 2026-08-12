@@ -95,8 +95,8 @@ private final DynamicMotionMagicExpoVoltage m_request = new DynamicMotionMagicEx
         configs.MotionMagic.MotionMagicExpo_kA = 0.13204;
 
         configs.Slot0.kS = 0.63542;
-        configs.Slot0.kP = 58.0;
-        configs.Slot0.kD = 2.5;
+        configs.Slot0.kP = 38.0;
+        configs.Slot0.kD = 0.5;
 
         turretMotor.getConfigurator().apply(configs);
     }
@@ -127,43 +127,24 @@ private final DynamicMotionMagicExpoVoltage m_request = new DynamicMotionMagicEx
     public void setAngle(
             Rotation2d robotHeading,
             Angle targetRad,
-            ShootState state,
-            double chassisOmegaRadsPerSec, 
-            double fieldVelocityX, 
-            double fieldVelocityY, 
-            double deltaX, 
-            double deltaY 
+            ShootState state
     ) {
 
         Angle bestAngle = calculate(robotHeading, targetRad, state);
-
-        // ==========================================
-        // 🚀 砲塔終極前饋計算 (Turret Feedforward)
-        // ==========================================
-        double extraFeedForwardVolts = 0.0;
-
-        double distanceSquared = (deltaX * deltaX) + (deltaY * deltaY);
-        double trackingOmegaRadsPerSec = 0.0;
-
-        if (distanceSquared > 0.1) {
-            trackingOmegaRadsPerSec = (fieldVelocityX * deltaY - fieldVelocityY * deltaX) / distanceSquared;
-        }
-
-        double expectedTurretOmegaRadsPerSec = trackingOmegaRadsPerSec - chassisOmegaRadsPerSec;
-        double expectedTurretRps = expectedTurretOmegaRadsPerSec / (2.0 * Math.PI);
-
-        // 🟢 封印 1 解除：同步移除這裡的 * 2 * Math.PI
-        double turretKv = 1.5255;
-
-        extraFeedForwardVolts = expectedTurretRps * turretKv;
-
-        // ==========================================
 
         // ✨ 完美餵給 Dynamic Expo 控制器
         turretMotor.setControl(m_request
                 .withPosition(bestAngle)
                 // 🟢 封印 2 解除：把我們算好的預判電壓塞進去，走射才會準！
-                .withFeedForward(extraFeedForwardVolts) 
+                .withFeedForward(0.0) 
         );
+    }
+    @Override
+    public double getVelocityRadsPerSec() {
+        // 1. 取得馬達最新速度 (單位：圈/秒)
+        double mechanismRps = turretMotor.getVelocity().getValueAsDouble();
+        
+        // 2. 轉換為弧度/秒 (Radians per second) 給物理引擎使用
+        return mechanismRps * 2.0 * Math.PI;
     }
 }

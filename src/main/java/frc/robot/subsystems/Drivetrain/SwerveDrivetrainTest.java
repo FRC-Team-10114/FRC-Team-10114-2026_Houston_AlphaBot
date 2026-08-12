@@ -20,6 +20,7 @@ public class SwerveDrivetrainTest extends SubsystemBase {
 
     public SwerveDrivetrainTest(CommandSwerveDrivetrain drivetrain, int moduleIndex) {
         this.ModuleIndex = moduleIndex;
+        this.loopCounter = moduleIndex * 2;
         TalonFX driveMotor = drivetrain.getModule(moduleIndex).getDriveMotor();
         TalonFX steerMotor = drivetrain.getModule(moduleIndex).getSteerMotor();
         

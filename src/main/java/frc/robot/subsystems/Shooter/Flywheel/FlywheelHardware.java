@@ -42,7 +42,7 @@ public class FlywheelHardware implements FlywheelIO {
         configs.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
 
 
-        configs.Slot0.kP = 10.0;
+        configs.Slot0.kP = 20.0;
         configs.Slot0.kI = 0.0;
         configs.Slot0.kD = 0.0;
 
@@ -82,6 +82,9 @@ public class FlywheelHardware implements FlywheelIO {
              return Math.abs(currentRPS) < 1.0;
         }
 
-        return error <= 3;
+        return error <= 1.0;
+    }
+    public void stop(){
+        this.flywheel.stopMotor();
     }
 }

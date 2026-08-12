@@ -5,6 +5,7 @@ import java.security.PublicKey;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 import static edu.wpi.first.units.Units.Amp;
+import static edu.wpi.first.units.Units.RotationsPerSecond;
 import static edu.wpi.first.units.Units.Volts;
 
 import frc.robot.Constants.IDs.Hopper;
@@ -25,8 +26,8 @@ public class HopperSubsystem extends SubsystemBase{
         return new HopperSubsystem(new ConveyorHareware(),new PeacemakerHardware());
     }
     public void warmUpforshoot(){
-        this.conveyorIO.setVoltage(Volts.of(10.0));
-        this.peacemakerIO.setVoltage(Volts.of(8.0));
+        this.conveyorIO.setRPS(RotationsPerSecond.of(100));
+        this.peacemakerIO.setRPS(RotationsPerSecond.of(80));
     }
 
     public void stop(){

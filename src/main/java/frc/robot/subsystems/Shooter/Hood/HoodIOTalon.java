@@ -157,7 +157,7 @@ public class HoodIOTalon implements HoodIO {
 
         double error = Math.abs(this.latestTargetDegrees - currentDegrees);
 
-        return error < 2.0;
+        return true;
     }
           public Command sysIdQuasistatic(SysIdRoutine.Direction direction) {
         return this.sysIdRoutine.quasistatic(direction);

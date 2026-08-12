@@ -1,5 +1,7 @@
 package frc.robot.subsystems.Shooter.Flywheel;
 
+import org.opencv.video.Video;
+
 import edu.wpi.first.units.measure.AngularVelocity;
 
 public interface FlywheelIO {
@@ -9,4 +11,6 @@ public interface FlywheelIO {
     public AngularVelocity getRPS();
 
     public boolean isAtSetPosition();
+
+    public void stop();
 }

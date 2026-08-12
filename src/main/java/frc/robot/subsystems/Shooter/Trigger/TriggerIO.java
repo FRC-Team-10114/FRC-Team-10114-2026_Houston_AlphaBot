@@ -1,11 +1,15 @@
 package frc.robot.subsystems.Shooter.Trigger;
 
-public interface TriggerIO {
+import edu.wpi.first.units.measure.AngularVelocity;
 
-    public void run();
+public interface TriggerIO {
+    
+    public void setRPS(AngularVelocity rps);
+
+    public AngularVelocity getRPS();
 
     public void stop();
 
-    public void configure();
+    public boolean isAtSetPosition();
 
 }

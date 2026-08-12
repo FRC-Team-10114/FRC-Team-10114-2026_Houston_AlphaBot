@@ -56,7 +56,7 @@ public final class Constants {
             public static final double TRENCHWide = Units.inchesToMeters(65.65);
             public static final double TRENCHdeep = Units.inchesToMeters(47.0);
             public static final double HUB_distance_to_the_ALLIANCE_WALL = Units.inchesToMeters(158.6);
-            public static final double Swerve = Units.inchesToMeters(27 / 2 + 27);
+            public static final double Swerve = Units.inchesToMeters(0.0);
 
             public static final Translation3d topCenterPoint = new Translation3d(
                     layout.getTagPose(26).map(pose -> pose.getX()).orElse(0.0) + width / 2.0,

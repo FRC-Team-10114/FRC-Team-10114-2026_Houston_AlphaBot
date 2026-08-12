@@ -117,7 +117,7 @@ public class RobotContainer {
   }
 
   public void log() {
-    SmartDashboard.putData("Field", field);
+    // SmartDashboard.putData("Field", field);
 
     // Logging callback for current robot pose
     PathPlannerLogging.setLogCurrentPoseCallback((pose) -> {

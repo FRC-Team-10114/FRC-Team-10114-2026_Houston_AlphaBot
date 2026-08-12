@@ -138,7 +138,7 @@ public class PhotonVision extends SubsystemBase {
         });
 
         // 輸出所有綠色雷射線
-        Logger.recordOutput("Vision/TagLines", linePoints.toArray(new Pose3d[0]));
+        // Logger.recordOutput("Vision/TagLines", linePoints.toArray(new Pose3d[0]));
     }
 
     private void updateVision() {
@@ -204,7 +204,7 @@ public class PhotonVision extends SubsystemBase {
                         stdDevs = VecBuilder.fill(distErr, distErr, 99999.0);
                     }
                 }
-                Logger.recordOutput("cameraRobotPose", cameraRobotPose3d);
+                // Logger.recordOutput("cameraRobotPose", cameraRobotPose3d);
                 drivetrain.addVisionMeasurement(
                         cameraRobotPose3d.toPose2d(),
                         resultTimeSec,

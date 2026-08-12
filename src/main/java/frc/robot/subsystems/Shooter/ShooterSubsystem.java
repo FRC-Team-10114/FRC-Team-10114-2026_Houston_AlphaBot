@@ -89,28 +89,11 @@ public class ShooterSubsystem extends SubsystemBase {
 
     @Override
     public void periodic() {
-        // trigger.run();
         SetShooterGoal();
-        // Logger.recordOutput("HoodAngle", this.hood.getAngle());
-        // Logger.recordOutput("flywheelRPS", this.flywheel.getRPS());
-        // Logger.recordOutput("m_targetAngle", m_targetAngle);
-        // Logger.recordOutput("flywheelRPS", flywheelRPS);
-        Logger.recordOutput("isInTrench", InTrench);
-        // Logger.recordOutput("isAtSetPosition", this.isAtSetPosition());
         Logger.recordOutput("turretangle", this.turret.getAngle());
-        // Logger.recordOutput("flywheelisAtSetPosition",
-        // this.flywheel.isAtSetPosition());
-        // this.setHoodAngle(HoodtargetAngle);
         Logger.recordOutput("HoodtargetAngle", HoodtargetAngle);
         Logger.recordOutput("getAnglegoal", this.turret.getAnglegoal());
     }
-    // public void Hoodup() {
-    // this.HoodtargetAngle = this.HoodtargetAngle.plus(Degrees.of(1));
-    // }
-
-    // public void Hooddown() {
-    // this.HoodtargetAngle = this.HoodtargetAngle.minus(Degrees.of(1));
-    // }
     public void TrueIsshooting() {
         Isshooting = true;
     }
@@ -167,13 +150,15 @@ public class ShooterSubsystem extends SubsystemBase {
 
         // this.setHoodAngle(HoodTarget);
 
-        this.setTurretAngle(drive.getRotation(), TurretTarget,state.chassisOmegaRadsPerSec(),state.fieldVelocityX(),state.fieldVelocityY(),state.deltaX(),state.deltaY());
+        this.setTurretAngle(drive.getRotation(), TurretTarget);
 
         Logger.recordOutput("HoodTarget", HoodtargetAngle);
 
         Logger.recordOutput("flywheelgoal", flywheelgoal);
 
         Logger.recordOutput("TurretTarget", TurretTarget);
+
+        Logger.recordOutput("InTrench", InTrench);
     }
 
     public void setHoodAngle(Angle targetRad) {
@@ -188,22 +173,18 @@ public class ShooterSubsystem extends SubsystemBase {
         this.setHoodAngle(HoodtargetAngle);
         this.flywheel.setRPS(flywheelgoal);
         if (isAtSetPosition()) {
-            this.trigger.run();
+            this.trigger.setRPS(RotationsPerSecond.of(29.0));
         }
     }
 
     public void stopShoot() {
-        this.flywheel.setRPS(RotationsPerSecond.of(0));
+        this.flywheel.stop();
         this.trigger.stop();
         this.hood.setAngle(ShooterConstants.Hood_MIN_LIMIT);
     }
 
-    public void setTurretAngle(Rotation2d robotAngle, Angle targetRad, double chassisOmegaRadsPerSec,
-            double fieldVelocityX,
-            double fieldVelocityY,
-            double deltaX,
-            double deltaY) {
-        this.turret.setAngle(robotAngle, targetRad, currentShootState, chassisOmegaRadsPerSec, fieldVelocityX, fieldVelocityY, deltaX, deltaY);
+    public void setTurretAngle(Rotation2d robotAngle, Angle targetRad) {
+        this.turret.setAngle(robotAngle, targetRad, currentShootState);
     }
 
     public boolean isAtSetPosition() {

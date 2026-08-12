@@ -27,15 +27,12 @@ public abstract class TurretIO {
     public abstract void setAngle(
             Rotation2d robotHeading,
             Angle targetRad,
-            ShootState state,
-            double chassisOmegaRadsPerSec, // 底盤的旋轉速度 (Rad/s)
-            double fieldVelocityX, // 底盤的 X 軸平移速度 (m/s)
-            double fieldVelocityY, // 底盤的 Y 軸平移速度 (m/s)
-            double deltaX, // 機器人到目標的 X 距離 (m)
-            double deltaY // 機器人到目標的 Y 距離 (m)
+            ShootState state// 機器人到目標的 Y 距離 (m)
     );
 
     // public abstract void resetAngle();
+
+    public abstract double getVelocityRadsPerSec();
 
     public abstract Angle getAngle();
 
