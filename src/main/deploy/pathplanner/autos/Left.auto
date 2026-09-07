@@ -13,12 +13,6 @@
                 "data": {
                   "pathName": "Left_Start"
                 }
-              },
-              {
-                "type": "named",
-                "data": {
-                  "name": "intake"
-                }
               }
             ]
           }

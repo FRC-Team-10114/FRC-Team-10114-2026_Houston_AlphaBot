@@ -13,12 +13,6 @@
                 "data": {
                   "pathName": "RIght_Start"
                 }
-              },
-              {
-                "type": "named",
-                "data": {
-                  "name": "intake"
-                }
               }
             ]
           }

@@ -88,8 +88,6 @@ public class RobotContainer {
     configureEvents();
 
     log();
-
-    configureBindings();
   }
 
   private void configureEvents() {
@@ -143,5 +141,8 @@ public class RobotContainer {
   }
   public superstructure superstructure(){
     return this.superstructure;
+  }
+  public CommandSwerveDrivetrain drivetrain(){
+    return drivetrain;
   }
 }

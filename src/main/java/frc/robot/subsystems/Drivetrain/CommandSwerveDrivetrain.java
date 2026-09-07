@@ -65,7 +65,10 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
     private boolean m_hasAppliedOperatorPerspective = false;
 
     /** Swerve request to apply during robot-centric path following */
-    private final SwerveRequest.ApplyRobotSpeeds m_pathApplyRobotSpeeds = new SwerveRequest.ApplyRobotSpeeds();
+        private final SwerveRequest.ApplyRobotSpeeds m_pathApplyRobotSpeeds = new SwerveRequest.ApplyRobotSpeeds();
+
+    // ✨ 1. 新增這行：手動駕駛專用的 Request，並指定為 OpenLoopVoltage 避免烏龜速
+    private final SwerveRequest.ApplyRobotSpeeds m_teleopApplyRobotSpeeds = new SwerveRequest.ApplyRobotSpeeds();
 
     /* Swerve requests to apply during SysId characterization */
     private final SwerveRequest.SysIdSwerveTranslation m_translationCharacterization = new SwerveRequest.SysIdSwerveTranslation();
@@ -497,7 +500,7 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         ChassisSpeeds optimizedSpeeds = kinematics.toChassisSpeeds(currentSetpoint.moduleStates());
 
         // 將速度傳給 CTRE
-        this.setControl(m_pathApplyRobotSpeeds.withSpeeds(optimizedSpeeds));
+        this.setControl(m_teleopApplyRobotSpeeds.withSpeeds(optimizedSpeeds));
 
         // Logger.recordOutput("Drive/SwerveStates/getPose", getPose2d());
     }

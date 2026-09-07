@@ -96,6 +96,8 @@ public class Robot extends LoggedRobot {
   @Override
   public void autonomousExit() {
     this.m_robotContainer.superstructure().stopShoot();
+    m_autonomousCommand.cancel();
+    this.m_robotContainer.drivetrain.stop();
   }
 
   @Override

@@ -85,7 +85,7 @@ public class superstructure extends SubsystemBase {
         }
     }
     public Command autoshoot() {
-        return Commands.sequence(shootCommand().withTimeout(4.0));
+        return Commands.sequence(shootCommand().withTimeout(3.35));
     }
     
     public Command autointake() {

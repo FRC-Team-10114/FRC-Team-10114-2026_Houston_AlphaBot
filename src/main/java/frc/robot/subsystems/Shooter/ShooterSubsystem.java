@@ -37,6 +37,8 @@ import frc.robot.util.RobotStatus.RobotStatus;
 
 public class ShooterSubsystem extends SubsystemBase {
 
+    private int skipCounter = 200;
+
     private final HoodIO hood;
     private final FlywheelIO flywheel;
     private final TurretIO turret;
@@ -89,6 +91,8 @@ public class ShooterSubsystem extends SubsystemBase {
 
     @Override
     public void periodic() {
+        if (this.skipCounter-- > 0) return;
+
         SetShooterGoal();
         Logger.recordOutput("turretangle", this.turret.getAngle());
         Logger.recordOutput("HoodtargetAngle", HoodtargetAngle);
@@ -173,7 +177,7 @@ public class ShooterSubsystem extends SubsystemBase {
         this.setHoodAngle(HoodtargetAngle);
         this.flywheel.setRPS(flywheelgoal);
         if (isAtSetPosition()) {
-            this.trigger.setRPS(RotationsPerSecond.of(29.0));
+            this.trigger.setRPS(RotationsPerSecond.of(65.0));
         }
     }
 
